@@ -1,0 +1,19 @@
+{
+  "name": "AuraWealth Portfolio Tracker",
+  "short_name": "AuraWealth",
+  "description": "Weekly India & UAE Wealth & Portfolio Tracker",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0B0F0D",
+  "theme_color": "#0B0F0D",
+  "icons": [
+    {
+      "src": "./icon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
