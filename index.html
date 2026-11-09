@@ -106,6 +106,13 @@
     }
   </style>
 </head>
+  <script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./sw.js');
+    });
+  }
+</script>
 <body class="antialiased min-h-screen flex justify-center bg-slate-950 text-slate-100 font-sans selection:bg-emerald-500/30">
 
   <!-- App Wrapper (Mobile First Max-W-MD with Tablet Flex) -->
