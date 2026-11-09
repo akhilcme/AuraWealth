@@ -1,0 +1,957 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <link rel="manifest" href="./manifest.json">
+  <meta name="theme-color" content="#0B0F0D">
+  <link rel="apple-touch-icon" href="./icon.svg">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>AuraWealth - Weekly Wealth Tracker</title>
+  
+  <!-- Manifest & Web App Meta -->
+  <meta name="theme-color" content="#0F172A">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="AuraWealth">
+
+  <!-- Fonts & Tailwind CSS -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'monospace'],
+          },
+          colors: {
+            surface: {
+              DEFAULT: '#0B0F19',
+              variant: '#121927',
+              container: '#182235',
+              elevated: '#202D45',
+              outline: '#2A3B59',
+            },
+            m3: {
+              primary: '#6EE7B7', // Mint / Emerald Accent
+              onPrimary: '#022C22',
+              primaryContainer: '#064E3B',
+              onPrimaryContainer: '#A7F3D0',
+              secondary: '#38BDF8',
+              surfaceDim: '#090D16',
+              chip: '#1E293B'
+            }
+          },
+          boxShadow: {
+            'glow': '0 0 25px -5px rgba(110, 231, 183, 0.25)',
+            'card': '0 8px 30px rgba(0, 0, 0, 0.35)',
+            'nav': '0 -8px 32px rgba(0, 0, 0, 0.45)',
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    /* Android Safe-area & Material 3 Utilities */
+    body {
+      background-color: #0B0F19;
+      color: #E2E8F0;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+      padding-top: env(safe-area-inset-top, 0px);
+      padding-bottom: env(safe-area-inset-bottom, 0px);
+    }
+    
+    /* Smooth Scrollbar */
+    ::-webkit-scrollbar { width: 4px; height: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #2A3B59; border-radius: 9999px; }
+
+    /* Material 3 Tap Ripple Effect Animation */
+    .tap-bounce {
+      transition: transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.15s;
+    }
+    .tap-bounce:active {
+      transform: scale(0.96);
+    }
+    
+    /* Glassmorphism blur */
+    .glass-nav {
+      background: rgba(18, 25, 39, 0.88);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+    }
+    .glass-card {
+      background: rgba(24, 34, 53, 0.7);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+    }
+
+    input[type=number]::-webkit-inner-spin-button, 
+    input[type=number]::-webkit-outer-spin-button { 
+      -webkit-appearance: none; 
+      margin: 0; 
+    }
+  </style>
+</head>
+<body class="antialiased min-h-screen flex justify-center bg-slate-950 text-slate-100 font-sans selection:bg-emerald-500/30">
+
+  <!-- App Wrapper (Mobile First Max-W-MD with Tablet Flex) -->
+  <div id="app" class="w-full max-w-md min-h-screen flex flex-col relative pb-28 border-x border-slate-900 shadow-2xl bg-surface">
+
+    <!-- Top Status Bar & App Header -->
+    <header class="sticky top-0 z-40 glass-nav px-5 pt-3 pb-3 border-b border-surface-outline/40">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center space-x-3">
+          <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-300 flex items-center justify-center text-surface font-black text-xl shadow-glow">
+            <i class="fa-solid fa-shapes"></i>
+          </div>
+          <div>
+            <div class="flex items-center gap-1.5">
+              <h1 class="text-lg font-bold tracking-tight text-white">AuraWealth</h1>
+              <span class="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">M3</span>
+            </div>
+            <p id="topDateStr" class="text-xs text-slate-400 font-medium">Sunday Routine</p>
+          </div>
+        </div>
+
+        <!-- Sunday Status Pill Button -->
+        <button id="sundayStatusChip" onclick="switchTab('sunday')" class="tap-bounce flex items-center space-x-2 px-3 py-1.5 rounded-full bg-emerald-950/70 text-emerald-300 border border-emerald-500/40 text-xs font-semibold">
+          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+          <span id="sundayChipText">Sunday Update</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Content Container with Tabs -->
+    <main class="flex-1 px-4 pt-4 overflow-y-auto">
+
+      <!-- ================= TAB 1: DASHBOARD ================= -->
+      <section id="tab-dashboard" class="space-y-5 animate-fade">
+        <!-- Hero Net Worth Card -->
+        <div class="relative overflow-hidden rounded-3xl p-6 bg-gradient-to-br from-surface-elevated via-surface-container to-surface-variant border border-surface-outline shadow-card">
+          <div class="absolute -right-8 -top-8 w-44 h-44 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none"></div>
+          <div class="flex justify-between items-start">
+            <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Total Net Worth</span>
+            <span id="nwDeltaBadge" class="text-xs font-bold px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300 flex items-center gap-1">
+              <i class="fa-solid fa-arrow-trend-up"></i> +0.0%
+            </span>
+          </div>
+
+          <div class="mt-2">
+            <h2 id="totalNetWorthLakh" class="text-3xl font-extrabold text-white tracking-tight">₹0.00 Lakhs</h2>
+            <p id="totalNetWorthRaw" class="text-sm font-mono text-slate-400 mt-0.5">₹0</p>
+          </div>
+
+          <!-- Quick 4 Asset Breakdown Chips -->
+          <div class="grid grid-cols-2 gap-2 mt-5 pt-4 border-t border-surface-outline/50">
+            <div class="bg-surface/60 rounded-xl p-2.5 border border-surface-outline/40">
+              <p class="text-[11px] text-slate-400 flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-sky-400"></span>Bank & FDs
+              </p>
+              <p id="dashBankTotal" class="text-sm font-bold text-slate-200 mt-1">₹0.00 L</p>
+            </div>
+            <div class="bg-surface/60 rounded-xl p-2.5 border border-surface-outline/40">
+              <p class="text-[11px] text-slate-400 flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-emerald-400"></span>Mutual Funds
+              </p>
+              <p id="dashMFTotal" class="text-sm font-bold text-slate-200 mt-1">₹0.00 L</p>
+            </div>
+            <div class="bg-surface/60 rounded-xl p-2.5 border border-surface-outline/40">
+              <p class="text-[11px] text-slate-400 flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-purple-400"></span>Equities/Stocks
+              </p>
+              <p id="dashStockTotal" class="text-sm font-bold text-slate-200 mt-1">₹0.00 L</p>
+            </div>
+            <div class="bg-surface/60 rounded-xl p-2.5 border border-surface-outline/40">
+              <p class="text-[11px] text-slate-400 flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-amber-400"></span>ULIP & Ins.
+              </p>
+              <p id="dashUlipTotal" class="text-sm font-bold text-slate-200 mt-1">₹0.00 L</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Weekly Progress Banner / Quick Routine CTA -->
+        <div class="bg-gradient-to-r from-emerald-950/70 to-surface-variant p-4 rounded-2xl border border-emerald-500/30 flex items-center justify-between">
+          <div class="flex items-center space-x-3">
+            <div class="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-lg">
+              <i class="fa-solid fa-calendar-check"></i>
+            </div>
+            <div>
+              <h4 class="text-sm font-bold text-white">Sunday Routine Ready</h4>
+              <p id="routineStatusSubtitle" class="text-xs text-slate-400">Quick 4-step weekly sync</p>
+            </div>
+          </div>
+          <button onclick="switchTab('sunday')" class="tap-bounce bg-emerald-400 hover:bg-emerald-300 text-emerald-950 font-bold px-3.5 py-2 rounded-xl text-xs flex items-center gap-1.5 shadow-md">
+            <span>Start</span>
+            <i class="fa-solid fa-arrow-right text-[10px]"></i>
+          </button>
+        </div>
+
+        <!-- Charts Section -->
+        <div class="bg-surface-variant rounded-3xl p-5 border border-surface-outline/60 space-y-4 shadow-card">
+          <div class="flex justify-between items-center">
+            <h3 class="text-sm font-bold text-slate-200 flex items-center gap-2">
+              <i class="fa-solid fa-chart-line text-emerald-400"></i>
+              Net Worth Trajectory
+            </h3>
+            <span class="text-[11px] text-slate-400 font-mono" id="chartPointCount">Weekly Log</span>
+          </div>
+          <div class="h-52 w-full relative">
+            <canvas id="netWorthHistoryChart"></canvas>
+          </div>
+        </div>
+
+        <!-- Allocation Doughnut & PnL Insights -->
+        <div class="grid grid-cols-1 gap-4">
+          <div class="bg-surface-variant rounded-3xl p-5 border border-surface-outline/60 shadow-card">
+            <h3 class="text-sm font-bold text-slate-200 mb-3 flex items-center gap-2">
+              <i class="fa-solid fa-chart-pie text-sky-400"></i>
+              Asset Allocation Ratio
+            </h3>
+            <div class="h-44 w-full relative flex items-center justify-center">
+              <canvas id="allocationChart"></canvas>
+            </div>
+          </div>
+
+          <!-- Quick Return Analysis -->
+          <div class="bg-surface-variant rounded-3xl p-5 border border-surface-outline/60 shadow-card space-y-3">
+            <div class="flex justify-between items-center">
+              <h3 class="text-sm font-bold text-slate-200 flex items-center gap-2">
+                <i class="fa-solid fa-scale-balanced text-purple-400"></i>
+                Equity & MF Unrealized P&L
+              </h3>
+            </div>
+            <div class="grid grid-cols-2 gap-3 pt-1">
+              <div class="p-3 rounded-2xl bg-surface-container/70 border border-surface-outline/40">
+                <span class="text-[11px] text-slate-400">Mutual Funds P&L</span>
+                <p id="mfPnLText" class="text-sm font-bold font-mono mt-0.5 text-emerald-400">+₹0.00</p>
+                <p id="mfPnLPct" class="text-[10px] text-slate-400">0.0% gain</p>
+              </div>
+              <div class="p-3 rounded-2xl bg-surface-container/70 border border-surface-outline/40">
+                <span class="text-[11px] text-slate-400">Stocks P&L</span>
+                <p id="stocksPnLText" class="text-sm font-bold font-mono mt-0.5 text-rose-400">-₹0.00</p>
+                <p id="stocksPnLPct" class="text-[10px] text-slate-400">0.0% gain</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= TAB 2: SUNDAY ROUTINE WIZARD ================= -->
+      <section id="tab-sunday" class="hidden space-y-4 animate-fade">
+        <div class="bg-surface-variant rounded-3xl p-5 border border-surface-outline shadow-card">
+          <div class="flex items-center justify-between border-b border-surface-outline/50 pb-3">
+            <div>
+              <h2 class="text-base font-extrabold text-white flex items-center gap-2">
+                <i class="fa-solid fa-wand-magic-sparkles text-emerald-400"></i> Sunday Update Routine
+              </h2>
+              <p class="text-xs text-slate-400 mt-0.5">Excel-free 4-step portfolio balance sync</p>
+            </div>
+            <div class="text-right">
+              <span id="wizardStepIndicator" class="px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">Step 1 of 4</span>
+            </div>
+          </div>
+
+          <!-- Progress Bar -->
+          <div class="w-full bg-surface-container h-1.5 rounded-full mt-3 overflow-hidden">
+            <div id="wizardProgressBar" class="h-full bg-emerald-400 rounded-full transition-all duration-300 w-1/4"></div>
+          </div>
+        </div>
+
+        <!-- STEP 1: Bank Balances -->
+        <div id="step-bank" class="wizard-step space-y-3">
+          <div class="flex items-center justify-between px-1">
+            <h3 class="text-sm font-bold text-slate-200">1. Bank & Fixed Deposit Balances</h3>
+            <span class="text-xs text-slate-400 font-mono" id="bankStepTotal">Total: ₹0</span>
+          </div>
+          <div id="wizardBankList" class="space-y-2.5 max-h-[50vh] overflow-y-auto pr-1">
+            <!-- Dynamically Rendered Bank Inputs -->
+          </div>
+        </div>
+
+        <!-- STEP 2: Mutual Funds CMP/Values -->
+        <div id="step-mf" class="wizard-step hidden space-y-3">
+          <div class="flex items-center justify-between px-1">
+            <h3 class="text-sm font-bold text-slate-200">2. Mutual Funds Current Value</h3>
+            <span class="text-xs text-slate-400 font-mono" id="mfStepTotal">Total: ₹0</span>
+          </div>
+          <div id="wizardMFList" class="space-y-2.5 max-h-[50vh] overflow-y-auto pr-1">
+            <!-- Dynamically Rendered MF Inputs -->
+          </div>
+        </div>
+
+        <!-- STEP 3: Stocks CMP (Auto units calculation) -->
+        <div id="step-stocks" class="wizard-step hidden space-y-3">
+          <div class="flex items-center justify-between px-1">
+            <div>
+              <h3 class="text-sm font-bold text-slate-200">3. Stock Closing Prices (CMP)</h3>
+              <p class="text-[11px] text-slate-400">Total value auto-computes by quantity</p>
+            </div>
+            <span class="text-xs text-slate-400 font-mono" id="stocksStepTotal">Total: ₹0</span>
+          </div>
+          <div id="wizardStocksList" class="space-y-2.5 max-h-[50vh] overflow-y-auto pr-1">
+            <!-- Dynamically Rendered Stock CMP Inputs -->
+          </div>
+        </div>
+
+        <!-- STEP 4: ULIP & Commit Snapshot -->
+        <div id="step-ulip" class="wizard-step hidden space-y-3">
+          <div class="flex items-center justify-between px-1">
+            <h3 class="text-sm font-bold text-slate-200">4. ULIP & Commit Weekly Snapshot</h3>
+          </div>
+          <div class="bg-surface-variant p-4 rounded-2xl border border-surface-outline/60 space-y-3">
+            <div>
+              <label class="text-xs text-slate-300 font-semibold block mb-1">SBI Life Smart Wealth Builder (Fund Value)</label>
+              <div class="relative">
+                <span class="absolute left-3 top-2.5 text-slate-400 font-mono text-sm">₹</span>
+                <input type="number" step="0.01" id="wizardUlipValue" class="w-full pl-8 pr-3 py-2 bg-surface rounded-xl border border-surface-outline text-white font-mono text-sm focus:border-emerald-400 outline-none">
+              </div>
+            </div>
+            <div class="text-[11px] text-slate-400 bg-surface/50 p-2.5 rounded-xl border border-surface-outline/30 space-y-1">
+              <div class="flex justify-between">
+                <span>Tata AIA Smart Sampoorna:</span>
+                <span class="font-semibold text-slate-300">₹4.06 Cr Cover</span>
+              </div>
+              <div class="flex justify-between">
+                <span>Tata AIA Vitality Protect:</span>
+                <span class="font-semibold text-slate-300">₹3.00 Cr Cover</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Calculated Preview -->
+          <div class="p-4 rounded-2xl bg-emerald-950/40 border border-emerald-500/40 space-y-2 text-center">
+            <span class="text-xs text-emerald-300 font-medium uppercase tracking-wider">Projected Snapshot Net Worth</span>
+            <p id="wizardSummaryNW" class="text-2xl font-black text-white font-mono">₹0.00 Lakhs</p>
+            <p id="wizardDeltaIndicator" class="text-xs font-semibold text-emerald-400">+₹0.00 vs Last Recorded Snapshot</p>
+          </div>
+        </div>
+
+        <!-- Wizard Navigation Buttons -->
+        <div class="flex items-center gap-3 pt-3">
+          <button id="wizardPrevBtn" onclick="navigateWizard(-1)" class="tap-bounce flex-1 py-3 px-4 rounded-2xl bg-surface-variant border border-surface-outline text-slate-300 font-semibold text-sm disabled:opacity-30 disabled:pointer-events-none">
+            Previous
+          </button>
+          <button id="wizardNextBtn" onclick="navigateWizard(1)" class="tap-bounce flex-1 py-3 px-4 rounded-2xl bg-emerald-400 hover:bg-emerald-300 text-emerald-950 font-bold text-sm shadow-glow flex items-center justify-center gap-1.5">
+            <span>Next</span>
+            <i class="fa-solid fa-arrow-right text-xs"></i>
+          </button>
+          <button id="wizardCommitBtn" onclick="commitWeeklySnapshot()" class="tap-bounce hidden flex-1 py-3 px-4 rounded-2xl bg-gradient-to-r from-emerald-400 to-teal-400 text-emerald-950 font-extrabold text-sm shadow-glow flex items-center justify-center gap-2">
+            <i class="fa-solid fa-check-double"></i>
+            <span>Commit Snapshot</span>
+          </button>
+        </div>
+      </section>
+
+      <!-- ================= TAB 3: ASSETS DRILLDOWN ================= -->
+      <section id="tab-assets" class="hidden space-y-4 animate-fade">
+        <!-- Sub-filter Pills -->
+        <div class="flex items-center space-x-2 overflow-x-auto pb-1">
+          <button onclick="filterAssetsCategory('all')" class="asset-cat-pill active tap-bounce px-3.5 py-1.5 rounded-full text-xs font-bold bg-emerald-400 text-emerald-950">All</button>
+          <button onclick="filterAssetsCategory('bank')" class="asset-cat-pill tap-bounce px-3.5 py-1.5 rounded-full text-xs font-semibold bg-surface-variant text-slate-300 border border-surface-outline">Banks (10)</button>
+          <button onclick="filterAssetsCategory('mf')" class="asset-cat-pill tap-bounce px-3.5 py-1.5 rounded-full text-xs font-semibold bg-surface-variant text-slate-300 border border-surface-outline">Mutual Funds (7)</button>
+          <button onclick="filterAssetsCategory('stocks')" class="asset-cat-pill tap-bounce px-3.5 py-1.5 rounded-full text-xs font-semibold bg-surface-variant text-slate-300 border border-surface-outline">Stocks (6)</button>
+          <button onclick="filterAssetsCategory('ulip')" class="asset-cat-pill tap-bounce px-3.5 py-1.5 rounded-full text-xs font-semibold bg-surface-variant text-slate-300 border border-surface-outline">ULIP/Ins</button>
+        </div>
+
+        <!-- Search Bar -->
+        <div class="relative">
+          <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-3 text-slate-400 text-xs"></i>
+          <input type="text" id="assetsSearchInput" placeholder="Search account, stock ticker, or fund..." oninput="renderAssetsDrilldown()" class="w-full pl-9 pr-4 py-2 bg-surface-variant rounded-2xl border border-surface-outline text-xs text-white placeholder-slate-400 focus:border-emerald-400 outline-none">
+        </div>
+
+        <!-- Add New Asset Button -->
+        <div class="flex justify-end">
+          <button onclick="openAddAssetModal()" class="tap-bounce text-xs font-bold text-emerald-400 flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
+            <i class="fa-solid fa-plus"></i> Add Item
+          </button>
+        </div>
+
+        <!-- Assets Dynamic Container -->
+        <div id="assetsDrilldownContainer" class="space-y-3 pb-4">
+          <!-- Rendered via JS -->
+        </div>
+      </section>
+
+      <!-- ================= TAB 4: CASH FLOW (UAE AED & REMITTANCE) ================= -->
+      <section id="tab-cashflow" class="hidden space-y-4 animate-fade">
+        <!-- Monthly UAE Summary -->
+        <div class="bg-gradient-to-br from-surface-elevated to-surface-variant rounded-3xl p-5 border border-surface-outline shadow-card">
+          <div class="flex justify-between items-center mb-3">
+            <div class="flex items-center gap-2">
+              <span class="w-7 h-7 rounded-xl bg-sky-500/20 text-sky-400 flex items-center justify-center text-xs font-bold">AED</span>
+              <h2 class="text-sm font-bold text-white">Monthly Cash Flow (Dubai/UAE)</h2>
+            </div>
+            <span class="text-xs font-mono text-emerald-400 font-semibold">1 AED ≈ ₹22.65</span>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3 mt-3">
+            <div class="p-3 bg-surface/70 rounded-2xl border border-surface-outline/40">
+              <span class="text-[11px] text-slate-400">Monthly Salary / In</span>
+              <p class="text-lg font-black text-white font-mono mt-0.5">35,000 AED</p>
+              <p class="text-[10px] text-slate-400">~₹7.93 Lakhs</p>
+            </div>
+            <div class="p-3 bg-surface/70 rounded-2xl border border-surface-outline/40">
+              <span class="text-[11px] text-slate-400">Fixed Commitments</span>
+              <p id="totalExpensesAED" class="text-lg font-black text-rose-300 font-mono mt-0.5">19,736 AED</p>
+              <p class="text-[10px] text-slate-400">~₹4.47 Lakhs</p>
+            </div>
+          </div>
+
+          <!-- Remittance Capacity Highlight -->
+          <div class="mt-3 p-3.5 rounded-2xl bg-emerald-950/60 border border-emerald-500/40 flex items-center justify-between">
+            <div>
+              <span class="text-[11px] uppercase tracking-wider text-emerald-300 font-bold">Net Remittance Surplus</span>
+              <p class="text-xl font-extrabold text-white font-mono" id="remittanceAED">15,264 AED</p>
+            </div>
+            <div class="text-right">
+              <span class="text-[10px] text-slate-400 block">Surplus to India</span>
+              <span class="text-sm font-bold text-emerald-300 font-mono" id="remittanceINR">~₹3,45,730</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Expense Line Items -->
+        <div class="bg-surface-variant rounded-3xl p-5 border border-surface-outline/60 shadow-card">
+          <div class="flex justify-between items-center mb-3">
+            <h3 class="text-sm font-bold text-slate-200">Expense Breakdown</h3>
+            <span class="text-xs text-slate-400">10 Major Items</span>
+          </div>
+          <div id="cashflowList" class="space-y-2">
+            <!-- Rendered by JS -->
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= TAB 5: SETTINGS & BACKUP ================= -->
+      <section id="tab-settings" class="hidden space-y-4 animate-fade">
+        <div class="bg-surface-variant rounded-3xl p-5 border border-surface-outline/60 shadow-card space-y-4">
+          <h2 class="text-sm font-extrabold text-white flex items-center gap-2">
+            <i class="fa-solid fa-sliders text-emerald-400"></i> Settings & Data Management
+          </h2>
+          <p class="text-xs text-slate-400">
+            AuraWealth stores all data directly in your browser's local sandbox without any external servers. You have complete ownership.
+          </p>
+
+          <!-- Action buttons -->
+          <div class="space-y-2.5 pt-2">
+            <button onclick="exportDataJSON()" class="tap-bounce w-full flex items-center justify-between p-3.5 rounded-2xl bg-surface-container hover:bg-surface-elevated border border-surface-outline text-left">
+              <div class="flex items-center gap-3">
+                <i class="fa-solid fa-file-export text-emerald-400 text-sm"></i>
+                <div>
+                  <p class="text-xs font-bold text-white">Export Backup (JSON)</p>
+                  <p class="text-[10px] text-slate-400">Save complete portfolio and snapshot logs</p>
+                </div>
+              </div>
+              <i class="fa-solid fa-chevron-right text-xs text-slate-500"></i>
+            </button>
+
+            <label class="tap-bounce w-full flex items-center justify-between p-3.5 rounded-2xl bg-surface-container hover:bg-surface-elevated border border-surface-outline text-left cursor-pointer">
+              <div class="flex items-center gap-3">
+                <i class="fa-solid fa-file-import text-sky-400 text-sm"></i>
+                <div>
+                  <p class="text-xs font-bold text-white">Import Backup (JSON)</p>
+                  <p class="text-[10px] text-slate-400">Restore your saved portfolio file</p>
+                </div>
+              </div>
+              <input type="file" id="importFileInput" accept=".json" class="hidden" onchange="importDataJSON(event)">
+              <i class="fa-solid fa-chevron-right text-xs text-slate-500"></i>
+            </label>
+
+            <button onclick="resetToInitialData()" class="tap-bounce w-full flex items-center justify-between p-3.5 rounded-2xl bg-rose-950/30 hover:bg-rose-900/40 border border-rose-500/30 text-left">
+              <div class="flex items-center gap-3">
+                <i class="fa-solid fa-rotate-left text-rose-400 text-sm"></i>
+                <div>
+                  <p class="text-xs font-bold text-rose-200">Reset to Excel Master Defaults</p>
+                  <p class="text-[10px] text-rose-300/70">Revert back to ₹97.67L pre-loaded state</p>
+                </div>
+              </div>
+              <i class="fa-solid fa-chevron-right text-xs text-rose-400"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Android PWA Home Screen Banner -->
+        <div id="pwaBanner" class="p-4 rounded-3xl bg-gradient-to-r from-emerald-950/80 to-surface-variant border border-emerald-500/40 space-y-2">
+          <div class="flex items-center gap-2.5">
+            <i class="fa-brands fa-android text-emerald-400 text-xl"></i>
+            <h4 class="text-xs font-bold text-white">Install on Android Device</h4>
+          </div>
+          <p class="text-[11px] text-slate-300 leading-relaxed">
+            Tap your browser's menu (⋮) and select <span class="font-bold text-emerald-300">"Add to Home screen"</span> or <span class="font-bold text-emerald-300">"Install App"</span> to launch AuraWealth in true full-screen native mode.
+          </p>
+        </div>
+
+        <!-- About Portfolio Info -->
+        <div class="p-4 rounded-2xl bg-surface/50 border border-surface-outline/30 text-center">
+          <p class="text-xs font-semibold text-slate-300">AuraWealth v2.4 (Android 15 Edition)</p>
+          <p class="text-[10px] text-slate-400 mt-1">Replacing Master Excel Portfolio • INR & AED Dual Currency Sync</p>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- ================= FLOATING TOAST NOTIFICATION ================= -->
+    <div id="toast" class="fixed top-5 left-1/2 -translate-x-1/2 z-50 transform -translate-y-20 opacity-0 transition-all duration-300 pointer-events-none px-4 py-2.5 rounded-2xl bg-slate-900/95 border border-emerald-500/50 text-white text-xs font-semibold shadow-2xl flex items-center gap-2">
+      <i id="toastIcon" class="fa-solid fa-circle-check text-emerald-400"></i>
+      <span id="toastMsg">Changes saved</span>
+    </div>
+
+    <!-- ================= MODAL: ADD / EDIT ASSET ITEM ================= -->
+    <div id="itemModal" class="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm hidden items-center justify-center p-4">
+      <div class="bg-surface-variant w-full max-w-sm rounded-3xl border border-surface-outline p-5 space-y-4 shadow-2xl animate-fade">
+        <div class="flex justify-between items-center">
+          <h3 id="itemModalTitle" class="text-sm font-bold text-white">Add Asset Item</h3>
+          <button onclick="closeItemModal()" class="w-8 h-8 rounded-full bg-surface-container flex items-center justify-center text-slate-400 hover:text-white">
+            <i class="fa-solid fa-xmark text-sm"></i>
+          </button>
+        </div>
+
+        <form id="itemModalForm" onsubmit="handleSaveItem(event)" class="space-y-3">
+          <input type="hidden" id="modalItemCategory" value="bank">
+          <input type="hidden" id="modalItemIndex" value="-1">
+
+          <div>
+            <label class="text-[11px] text-slate-400 block mb-1">Asset Category</label>
+            <select id="modalCategorySelect" onchange="toggleModalFields()" class="w-full px-3 py-2 bg-surface rounded-xl border border-surface-outline text-white text-xs outline-none focus:border-emerald-400">
+              <option value="bank">Bank / Fixed Deposit</option>
+              <option value="mf">Mutual Fund</option>
+              <option value="stocks">Stock / Equity</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="text-[11px] text-slate-400 block mb-1">Name / Scrip / Bank</label>
+            <input type="text" id="modalItemName" required placeholder="e.g. HDFC Flexi Cap or TATASTEEL" class="w-full px-3 py-2 bg-surface rounded-xl border border-surface-outline text-white text-xs outline-none focus:border-emerald-400">
+          </div>
+
+          <div id="modalSubFieldGroup">
+            <!-- Dynamic fields depending on category -->
+          </div>
+
+          <div>
+            <label id="modalValueLabel" class="text-[11px] text-slate-400 block mb-1">Current Balance / Value (₹)</label>
+            <input type="number" step="0.01" id="modalItemValue" required placeholder="0.00" class="w-full px-3 py-2 bg-surface rounded-xl border border-surface-outline text-white text-xs font-mono outline-none focus:border-emerald-400">
+          </div>
+
+          <div class="flex gap-2 pt-2">
+            <button type="button" onclick="closeItemModal()" class="flex-1 py-2.5 rounded-xl bg-surface-container text-slate-300 text-xs font-semibold">Cancel</button>
+            <button type="submit" class="flex-1 py-2.5 rounded-xl bg-emerald-400 text-emerald-950 text-xs font-bold shadow-glow">Save Item</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- ================= ANDROID MATERIAL 3 BOTTOM NAVIGATION ================= -->
+    <nav class="fixed bottom-0 left-0 right-0 z-40 flex justify-center pointer-events-none">
+      <div class="w-full max-w-md glass-nav border-t border-surface-outline/50 px-2 py-2 flex items-center justify-around pointer-events-auto shadow-nav">
+        
+        <!-- Dashboard Tab -->
+        <button onclick="switchTab('dashboard')" id="nav-btn-dashboard" class="nav-tab active flex flex-col items-center justify-center py-1 px-3 rounded-2xl transition-colors text-emerald-400">
+          <div class="nav-indicator w-12 h-7 rounded-full flex items-center justify-center bg-emerald-500/20 mb-0.5 transition-all">
+            <i class="fa-solid fa-chart-pie text-sm"></i>
+          </div>
+          <span class="text-[10px] font-bold">Dashboard</span>
+        </button>
+
+        <!-- Sunday Routine Tab -->
+        <button onclick="switchTab('sunday')" id="nav-btn-sunday" class="nav-tab flex flex-col items-center justify-center py-1 px-3 rounded-2xl transition-colors text-slate-400 hover:text-slate-200">
+          <div class="nav-indicator w-12 h-7 rounded-full flex items-center justify-center mb-0.5 transition-all">
+            <i class="fa-solid fa-wand-magic-sparkles text-sm"></i>
+          </div>
+          <span class="text-[10px] font-bold">Sunday Sync</span>
+        </button>
+
+        <!-- Assets Drilldown Tab -->
+        <button onclick="switchTab('assets')" id="nav-btn-assets" class="nav-tab flex flex-col items-center justify-center py-1 px-3 rounded-2xl transition-colors text-slate-400 hover:text-slate-200">
+          <div class="nav-indicator w-12 h-7 rounded-full flex items-center justify-center mb-0.5 transition-all">
+            <i class="fa-solid fa-wallet text-sm"></i>
+          </div>
+          <span class="text-[10px] font-bold">Holdings</span>
+        </button>
+
+        <!-- Cashflow Tab -->
+        <button onclick="switchTab('cashflow')" id="nav-btn-cashflow" class="nav-tab flex flex-col items-center justify-center py-1 px-3 rounded-2xl transition-colors text-slate-400 hover:text-slate-200">
+          <div class="nav-indicator w-12 h-7 rounded-full flex items-center justify-center mb-0.5 transition-all">
+            <i class="fa-solid fa-money-bill-transfer text-sm"></i>
+          </div>
+          <span class="text-[10px] font-bold">AED Flow</span>
+        </button>
+
+        <!-- Settings Tab -->
+        <button onclick="switchTab('settings')" id="nav-btn-settings" class="nav-tab flex flex-col items-center justify-center py-1 px-3 rounded-2xl transition-colors text-slate-400 hover:text-slate-200">
+          <div class="nav-indicator w-12 h-7 rounded-full flex items-center justify-center mb-0.5 transition-all">
+            <i class="fa-solid fa-gear text-sm"></i>
+          </div>
+          <span class="text-[10px] font-bold">Settings</span>
+        </button>
+
+      </div>
+    </nav>
+
+  </div>
+
+  <!-- APPLICATION LOGIC & STATE ENGINE -->
+  <script>
+    // Exact Pre-loaded Data from the User's Excel Master Workbook
+    const DEFAULT_DATA = {
+      banks: [
+        { id: 'b1', name: 'HDFC Talap NRE', type: 'Savings', balance: 452496.53, maturity: null },
+        { id: 'b2', name: 'HDFC Calicut NRE/DMAT', type: 'DMAT / Savings', balance: 116631.34, maturity: null },
+        { id: 'b3', name: 'HDFC Talap NRO', type: 'Savings', balance: 5.50, maturity: null },
+        { id: 'b4', name: 'HDFC Kannapuram FD', type: 'Fixed Deposit', balance: 30959.00, maturity: 'May 2027' },
+        { id: 'b5', name: 'HDFC Talap FD', type: 'Fixed Deposit', balance: 531989.00, maturity: 'Apr 2027' },
+        { id: 'b6', name: 'Axis Kannur NRE', type: 'Savings', balance: 318980.06, maturity: null },
+        { id: 'b7', name: 'Axis Kannur NRO', type: 'Savings', balance: 7019.85, maturity: null },
+        { id: 'b8', name: 'Axis Kannur FD', type: 'Fixed Deposit', balance: 106398.00, maturity: 'Feb 2027' },
+        { id: 'b9', name: 'SBI Pappinisseri NRE', type: 'Savings', balance: 181311.61, maturity: null },
+        { id: 'b10', name: 'SBI Pappinisseri NRO', type: 'Savings', balance: 0.00, maturity: null }
+      ],
+      mutualFunds: [
+        { id: 'mf1', name: 'HDFC Retirement Savings Fund', invested: 330000, current: 325000, sip: 'Lumpsum' },
+        { id: 'mf2', name: 'Nippon India Large Cap', invested: 678000, current: 683000, sip: '₹30,400' },
+        { id: 'mf3', name: 'HDFC Mid Cap Fund', invested: 1104000, current: 1131000, sip: '₹60,800' },
+        { id: 'mf4', name: 'Edelweiss Small Cap Fund', invested: 536000, current: 563000, sip: '₹35,200' },
+        { id: 'mf5', name: 'Axis Nifty Small Cap 50 Index', invested: 487000, current: 502000, sip: '₹35,200' },
+        { id: 'mf6', name: 'Parag Parikh Flexi Cap', invested: 422000, current: 421000, sip: '₹30,400' },
+        { id: 'mf7', name: 'Quant Flexi Cap', invested: 1370000, current: 1360000, sip: '₹30,400' }
+      ],
+      stocks: [
+        { id: 's1', ticker: 'KRISHNA PROSCHEM', units: 2485, buyAvg: 194.50, cmp: 245.47 },
+        { id: 's2', ticker: 'STYLAMIND', units: 149, buyAvg: 3363.43, cmp: 3093.30 },
+        { id: 's3', ticker: 'WAAREERTL', units: 600, buyAvg: 987.40, cmp: 748.00 },
+        { id: 's4', ticker: 'ANANTRAJ', units: 650, buyAvg: 570.67, cmp: 466.00 },
+        { id: 's5', ticker: 'JAINREC', units: 1000, buyAvg: 297.76, cmp: 280.25 },
+        { id: 's6', ticker: 'SAJILITY', units: 4000, buyAvg: 46.22, cmp: 43.80 }
+      ],
+      ulip: {
+        name: 'SBI Life Smart Wealth Builder',
+        value: 756643.18,
+        termInsurance: [
+          { company: 'Tata AIA Smart Sampoorna Raksha', cover: '₹4.06 Cr' },
+          { company: 'Tata AIA Vitality Protect', cover: '₹3.00 Cr' }
+        ]
+      },
+      cashflow: {
+        incomeAED: 35000,
+        expenses: [
+          { name: 'House Rent', aed: 5000, icon: 'fa-house' },
+          { name: 'Car Loan EMI', aed: 3065, icon: 'fa-car' },
+          { name: 'Personal Loan', aed: 4158, icon: 'fa-building-columns' },
+          { name: 'Supermarket / Groceries', aed: 3500, icon: 'fa-cart-shopping' },
+          { name: 'Online Purchases', aed: 2000, icon: 'fa-bag-shopping' },
+          { name: 'Petrol / Fuel', aed: 900, icon: 'fa-gas-pump' },
+          { name: 'Car Insurance', aed: 417, icon: 'fa-shield' },
+          { name: 'E-Life Home Internet', aed: 357, icon: 'fa-wifi' },
+          { name: 'Mobile Virgin VIP Plan', aed: 179, icon: 'fa-mobile-screen' },
+          { name: 'Darb Tolls / Miscellaneous', aed: 160, icon: 'fa-road' }
+        ]
+      },
+      historyLogs: [
+        { date: '2026-10-18', label: 'Wk 42', netWorth: 9480000 },
+        { date: '2026-10-25', label: 'Wk 43', netWorth: 9595000 },
+        { date: '2026-11-01', label: 'Wk 44', netWorth: 9680000 },
+        { date: '2026-11-08', label: 'Wk 45', netWorth: 9766961 }
+      ]
+    };
+
+    // State Variables
+    let appData = {};
+    let currentWizardStep = 1;
+    let netWorthChartInstance = null;
+    let allocationChartInstance = null;
+    let activeAssetCategoryFilter = 'all';
+
+    // Formatters
+    const formatINR = (val) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(val);
+    const formatLakhs = (val) => `₹${(val / 100000).toFixed(2)} Lakhs`;
+    const formatNumber = (val) => new Intl.NumberFormat('en-IN', { maximumFractionDigits: 2 }).format(val);
+
+    // Initialization
+    window.addEventListener('DOMContentLoaded', () => {
+      loadStorageData();
+      updateHeaderDate();
+      renderDashboard();
+      initSundayWizard();
+      renderAssetsDrilldown();
+      renderCashFlow();
+    });
+
+    function loadStorageData() {
+      const stored = localStorage.getItem('aurawealth_data_v1');
+      if (stored) {
+        try {
+          appData = JSON.parse(stored);
+        } catch (e) {
+          appData = JSON.parse(JSON.stringify(DEFAULT_DATA));
+        }
+      } else {
+        appData = JSON.parse(JSON.stringify(DEFAULT_DATA));
+        saveStorageData();
+      }
+    }
+
+    function saveStorageData() {
+      localStorage.setItem('aurawealth_data_v1', JSON.stringify(appData));
+    }
+
+    function updateHeaderDate() {
+      const now = new Date();
+      const options = { weekday: 'short', month: 'short', day: 'numeric' };
+      document.getElementById('topDateStr').innerText = now.toLocaleDateString('en-US', options);
+
+      // Check if Sunday
+      const day = now.getDay();
+      const daysUntilSunday = (7 - day) % 7;
+      const chip = document.getElementById('sundayChipText');
+      if (day === 0) {
+        chip.innerText = 'Sunday Routine Ready!';
+      } else {
+        chip.innerText = `Sunday Sync (${daysUntilSunday}d)`;
+      }
+    }
+
+    // ================= TOTAL CALCULATIONS =================
+    function getTotals() {
+      const bankTotal = appData.banks.reduce((acc, b) => acc + (parseFloat(b.balance) || 0), 0);
+      const mfCurrentTotal = appData.mutualFunds.reduce((acc, mf) => acc + (parseFloat(mf.current) || 0), 0);
+      const mfInvestedTotal = appData.mutualFunds.reduce((acc, mf) => acc + (parseFloat(mf.invested) || 0), 0);
+      
+      const stocksCurrentTotal = appData.stocks.reduce((acc, s) => acc + ((parseFloat(s.units) || 0) * (parseFloat(s.cmp) || 0)), 0);
+      const stocksInvestedTotal = appData.stocks.reduce((acc, s) => acc + ((parseFloat(s.units) || 0) * (parseFloat(s.buyAvg) || 0)), 0);
+
+      const ulipTotal = parseFloat(appData.ulip.value) || 0;
+      const totalNetWorth = bankTotal + mfCurrentTotal + stocksCurrentTotal + ulipTotal;
+
+      return {
+        bankTotal,
+        mfCurrentTotal,
+        mfInvestedTotal,
+        stocksCurrentTotal,
+        stocksInvestedTotal,
+        ulipTotal,
+        totalNetWorth
+      };
+    }
+
+    // ================= DASHBOARD RENDERING & CHARTS =================
+    function renderDashboard() {
+      const totals = getTotals();
+
+      document.getElementById('totalNetWorthLakh').innerText = formatLakhs(totals.totalNetWorth);
+      document.getElementById('totalNetWorthRaw').innerText = formatINR(totals.totalNetWorth);
+
+      document.getElementById('dashBankTotal').innerText = formatLakhs(totals.bankTotal);
+      document.getElementById('dashMFTotal').innerText = formatLakhs(totals.mfCurrentTotal);
+      document.getElementById('dashStockTotal').innerText = formatLakhs(totals.stocksCurrentTotal);
+      document.getElementById('dashUlipTotal').innerText = formatLakhs(totals.ulipTotal);
+
+      // MF P&L
+      const mfPnL = totals.mfCurrentTotal - totals.mfInvestedTotal;
+      const mfPnLPct = totals.mfInvestedTotal > 0 ? (mfPnL / totals.mfInvestedTotal * 100).toFixed(1) : 0;
+      const mfElem = document.getElementById('mfPnLText');
+      mfElem.innerText = `${mfPnL >= 0 ? '+' : ''}${formatINR(mfPnL)}`;
+      mfElem.className = `text-sm font-bold font-mono mt-0.5 ${mfPnL >= 0 ? 'text-emerald-400' : 'text-rose-400'}`;
+      document.getElementById('mfPnLPct').innerText = `${mfPnLPct}% overall return`;
+
+      // Stocks P&L
+      const stockPnL = totals.stocksCurrentTotal - totals.stocksInvestedTotal;
+      const stockPnLPct = totals.stocksInvestedTotal > 0 ? (stockPnL / totals.stocksInvestedTotal * 100).toFixed(1) : 0;
+      const stockElem = document.getElementById('stocksPnLText');
+      stockElem.innerText = `${stockPnL >= 0 ? '+' : ''}${formatINR(stockPnL)}`;
+      stockElem.className = `text-sm font-bold font-mono mt-0.5 ${stockPnL >= 0 ? 'text-emerald-400' : 'text-rose-400'}`;
+      document.getElementById('stocksPnLPct').innerText = `${stockPnLPct}% overall return`;
+
+      // Delta compared to latest history point
+      if (appData.historyLogs.length >= 2) {
+        const last = appData.historyLogs[appData.historyLogs.length - 1].netWorth;
+        const prev = appData.historyLogs[appData.historyLogs.length - 2].netWorth;
+        const diff = last - prev;
+        const pct = ((diff / prev) * 100).toFixed(2);
+        const badge = document.getElementById('nwDeltaBadge');
+        badge.innerHTML = `<i class="fa-solid fa-arrow-trend-${diff >= 0 ? 'up' : 'down'}"></i> ${diff >= 0 ? '+' : ''}${pct}%`;
+        badge.className = `text-xs font-bold px-2.5 py-1 rounded-full flex items-center gap-1 ${diff >= 0 ? 'bg-emerald-500/20 text-emerald-300' : 'bg-rose-500/20 text-rose-300'}`;
+      }
+
+      renderCharts(totals);
+    }
+
+    function renderCharts(totals) {
+      // 1. Net Worth Trajectory Chart
+      const historyLabels = appData.historyLogs.map(h => h.label || h.date);
+      const historyData = appData.historyLogs.map(h => (h.netWorth / 100000)); // In Lakhs
+
+      const ctxHistory = document.getElementById('netWorthHistoryChart').getContext('2d');
+      if (netWorthChartInstance) netWorthChartInstance.destroy();
+
+      const gradient = ctxHistory.createLinearGradient(0, 0, 0, 200);
+      gradient.addColorStop(0, 'rgba(110, 231, 183, 0.45)');
+      gradient.addColorStop(1, 'rgba(110, 231, 183, 0.0)');
+
+      netWorthChartInstance = new Chart(ctxHistory, {
+        type: 'line',
+        data: {
+          labels: historyLabels,
+          datasets: [{
+            label: 'Net Worth (₹ Lakhs)',
+            data: historyData,
+            borderColor: '#6EE7B7',
+            borderWidth: 3,
+            pointBackgroundColor: '#10B981',
+            pointBorderColor: '#ffffff',
+            pointRadius: 4,
+            pointHoverRadius: 6,
+            fill: true,
+            backgroundColor: gradient,
+            tension: 0.35
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: (ctx) => `₹${ctx.raw.toFixed(2)} Lakhs`
+              }
+            }
+          },
+          scales: {
+            x: {
+              grid: { display: false },
+              ticks: { color: '#94A3B8', font: { size: 10 } }
+            },
+            y: {
+              grid: { color: '#1E293B' },
+              ticks: {
+                color: '#94A3B8',
+                font: { size: 10 },
+                callback: (val) => `₹${val}L`
+              }
+            }
+          }
+        }
+      });
+
+      // 2. Asset Allocation Donut
+      const ctxAlloc = document.getElementById('allocationChart').getContext('2d');
+      if (allocationChartInstance) allocationChartInstance.destroy();
+
+      allocationChartInstance = new Chart(ctxAlloc, {
+        type: 'doughnut',
+        data: {
+          labels: ['Bank & FDs', 'Mutual Funds', 'Equities/Stocks', 'ULIP'],
+          datasets: [{
+            data: [
+              totals.bankTotal,
+              totals.mfCurrentTotal,
+              totals.stocksCurrentTotal,
+              totals.ulipTotal
+            ],
+            backgroundColor: ['#38BDF8', '#34D399', '#A855F7', '#FBBF24'],
+            borderWidth: 0,
+            hoverOffset: 6
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          cutout: '72%',
+          plugins: {
+            legend: {
+              position: 'right',
+              labels: {
+                boxWidth: 10,
+                boxHeight: 10,
+                color: '#CBD5E1',
+                font: { size: 11, family: 'Plus Jakarta Sans' }
+              }
+            },
+            tooltip: {
+              callbacks: {
+                label: (ctx) => {
+                  const val = ctx.raw;
+                  const pct = ((val / totals.totalNetWorth) * 100).toFixed(1);
+                  return ` ${ctx.label}: ₹${(val/100000).toFixed(2)}L (${pct}%)`;
+                }
+              }
+            }
+          }
+        }
+      });
+    }
+
+    // ================= SUNDAY ROUTINE WIZARD LOGIC =================
+    function initSundayWizard() {
+      // Step 1: Render Banks
+      const bankContainer = document.getElementById('wizardBankList');
+      bankContainer.innerHTML = '';
+      appData.banks.forEach((b, idx) => {
+        bankContainer.innerHTML += `
+          <div class="p-3 bg-surface rounded-2xl border border-surface-outline/50 flex items-center justify-between">
+            <div class="pr-2 max-w-[55%]">
+              <p class="text-xs font-bold text-white truncate">${b.name}</p>
+              <p class="text-[10px] text-slate-400">${b.type} ${b.maturity ? '• Mat: ' + b.maturity : ''}</p>
+            </div>
+            <div class="relative w-36">
+              <span class="absolute left-2.5 top-2 text-slate-400 text-xs font-mono">₹</span>
+              <input type="number" step="0.01" data-bank-idx="${idx}" value="${b.balance}" 
+                oninput="updateWizardLiveBankTotals()"
+                class="wizard-bank-input w-full pl-6 pr-2 py-1.5 bg-surface-container rounded-xl border border-surface-outline text-white font-mono text-xs text-right focus:border-emerald-400 outline-none">
+            </div>
+          </div>
+        `;
+      });
+      updateWizardLiveBankTotals();
+
+      // Step 2: Render Mutual Funds
+      const mfContainer = document.getElementById('wizardMFList');
+      mfContainer.innerHTML = '';
+      appData.mutualFunds.forEach((mf, idx) => {
+        mfContainer.innerHTML += `
+          <div class="p-3 bg-surface rounded-2xl border border-surface-outline/50 flex items-center justify-between">
+            <div class="pr-2 max-w-[55%]">
+              <p class="text-xs font-bold text-white truncate">${mf.name}</p>
+              <p class="text-[10px] text-slate-400">Inv: ₹${(mf.invested/100000).toFixed(2)}L • SIP: ${mf.sip}</p>
+            </div>
+            <div class="relative w-36">
+              <span class="absolute left-2.5 top-2 text-slate-400 text-xs font-mono">₹</span>
+              <input type="number" step="100" data-mf-idx="${idx}" value="${mf.current}" 
+                oninput="updateWizardLiveMFTotals()"
+                class="wizard-mf-input w-full pl-6 pr-2 py-1.5 bg-surface-container rounded-xl border border-surface-outline text-white font-mono text-xs text-right focus:border-emerald-400 outline-none">
+            </div>
+          </div>
+        `;
+      });
+      updateWizardLiveMFTotals();
+
+      // Step 3: Render Stocks
+      const stockContainer = document.getElementById('wizardStocksList');
+      stockContainer.innerHTML = '';
+      appData.stocks.forEach((s, idx) => {
+        const holdingVal = s.units * s.cmp;
+        stockContainer.innerHTML += `
+          <div class="p-3 bg-surface rounded-2xl border border-surface-outline/50 flex items-center justify-between">
+            <div class="pr-2">
+              <p class="text-xs font-extrabold text-white">${s.ticker}</p>
+              <p class="text-[10px] text-slate-400 font-mono">${s.units} Qty • Avg: ₹${s.buyAvg.toFixed(1)}</p>
+            </div>
+            <div class="flex items-center gap-2">
+              <div class="relative w-28">
+                <span class="absolute left-2 top-2 text-slate-400 text-xs font-mono">₹</span>
+                <input type="number" step="0.05" data-stock-idx="${idx}"
